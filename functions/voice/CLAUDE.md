@@ -52,6 +52,8 @@ This directory contains Twilio Voice API functions for handling phone calls.
 |------|--------|-------------|
 | `pizza-agent-connect.js` | Public | Connects incoming calls to the pizza-ordering AI agent via ConversationRelay |
 
+**See also**: `functions/warm-transfer/` — AI-powered warm call transfer with conference-first architecture and ConversationRelay participants. Documented in [functions/warm-transfer/CLAUDE.md](/functions/warm-transfer/CLAUDE.md).
+
 ### Media Streams (UC6)
 | File | Access | Description |
 |------|--------|-------------|
@@ -370,9 +372,9 @@ When using `Record=true` on the Conference Participants API, recording starts fr
 
 Don't combine `--record` CLI flag (or `Record=true` API param) with `<Start><Recording>` TwiML — this creates two recordings (one OutboundAPI 1-channel, one TwiML 2-channel). Pick one method.
 
-### Participants API to Twilio Numbers Invokes the Voice URL
+### Participants API Bridges Audio Regardless of TwiML
 
-The Participants API does NOT auto-generate conference TwiML. When you add a Twilio number as a participant, that number's voice URL fires and must return conference-joining TwiML. Conference name is NOT passed in the webhook params — use `make_call` with `?ConferenceName=X` query param instead so the handler knows which conference to join.
+When the Participants API adds a call to a conference, the platform bridges audio into the conference mixer at the transport level. If the `to` number is a Twilio number, its voice URL fires and the returned TwiML executes on that call leg — but the audio is bridged into the conference regardless of what the TwiML does. This means a participant can run `<Connect><ConversationRelay>` or any other TwiML while still having its audio mixed into the conference. The conference name is NOT passed in the webhook params — use query params on the voice URL if the handler needs it.
 
 ### `make_call(To=TwilioNumber)` Creates Two Independent TwiML Legs
 

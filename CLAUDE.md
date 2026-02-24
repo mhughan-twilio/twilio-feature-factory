@@ -16,6 +16,7 @@ Production-ready Twilio serverless functions for voice, messaging, verification,
 - `functions/sync/` — Real-time state synchronization
 - `functions/taskrouter/` — Skills-based routing
 - `functions/conversation-relay/` — Real-time voice AI
+- `functions/warm-transfer/` — AI-powered warm call transfer
 - `functions/callbacks/` — Status callback handlers
 - `functions/helpers/` — Shared private utilities
 
@@ -48,6 +49,7 @@ When `.meta/` exists at the project root, this is a meta-development environment
 - **Session learnings**: `.meta/learnings.md` in meta-development, `.claude/learnings.md` otherwise
 - **Pending actions**: `.meta/pending-actions.md` in meta-development, `.claude/pending-actions.md` otherwise
 - **Archived plans**: `.meta/plans/` in meta-development, `.claude/archive/plans/` otherwise
+- **Active plans**: `~/.claude/plans/*.md` — Claude Code writes plan mode plans here. When the user asks about "the plan", check this directory (most recently modified file). The `archive-plan.sh` hook copies the latest plan to the project archive directory on session end.
 
 The hooks in `.claude/hooks/` auto-detect the environment. Claude must also follow this routing — when the user says "todo" or "learnings", use the meta-development paths if `.meta/` exists. See `.meta/CLAUDE.md` for full meta-development documentation.
 
@@ -75,6 +77,7 @@ Agent Teams coordinate multiple Claude Code instances for parallel work. Use `/t
 | Voice use case product map | `.claude/skills/voice-use-case-map.md` (load on demand) |
 | SMS/MMS patterns | [functions/messaging/CLAUDE.md](/functions/messaging/CLAUDE.md) |
 | Real-time voice AI | [functions/conversation-relay/CLAUDE.md](/functions/conversation-relay/CLAUDE.md) |
+| Warm transfer (voice AI) | [functions/warm-transfer/CLAUDE.md](/functions/warm-transfer/CLAUDE.md) |
 | Verification patterns | [functions/verify/CLAUDE.md](/functions/verify/CLAUDE.md) |
 | State synchronization | [functions/sync/CLAUDE.md](/functions/sync/CLAUDE.md) |
 | Task routing | [functions/taskrouter/CLAUDE.md](/functions/taskrouter/CLAUDE.md) |
@@ -96,10 +99,28 @@ Agent Teams coordinate multiple Claude Code instances for parallel work. Use `/t
 | Session learnings | Learnings file (see [Meta-Development Mode](#meta-development-mode)) |
 
 ## Your Role as Primary Agent
+
+You are an **orchestrator**, not a solo implementer. Your job is to coordinate subagents and agent teams — not to write all the code yourself.
+
 - **Architecture & Planning**: Lead on system design and specification creation
 - **Test-Driven Development**: Primary responsibility for comprehensive test coverage
 - **Code Review**: Final validation of complex logic and architectural decisions
 - **Documentation**: Maintain and update technical documentation
+
+### Implementation Workflow (MANDATORY)
+
+When implementing a plan or any non-trivial feature, you MUST delegate to subagents. Never implement plans solo.
+
+**Standard workflow**: `/architect` → `/spec` → `/test-gen` → `/dev` → `/review` → `/test`
+
+**For parallelizable work**: Use `TeamCreate` to spin up agent teams. If the plan says tasks can be parallelized, use a team — don't serialize the work yourself.
+
+**When to use which**:
+- **Single-track work** (sequential steps): Use `/orchestrate` or invoke subagents one at a time
+- **Multi-track work** (independent tasks): Use `/team` to run agents in parallel
+- **Quick fixes** (typos, single-line changes): You may act directly — subagents are overkill
+
+If you catch yourself writing more than ~20 lines of implementation code directly, stop and delegate to `/dev` instead.
 
 ## Documentation Protocol
 
@@ -140,7 +161,7 @@ For the full capture-promote-clear documentation workflow, see the `doc-flywheel
 # Interaction
 
 - When you first work with a new user, ask for their preferred name and update this file.
-- **Preferred name: [Your name here]**
+- Preferred name: Gogo
 
 ## Working Together
 

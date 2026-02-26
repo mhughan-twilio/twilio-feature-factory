@@ -205,7 +205,10 @@ For the full capture-promote-clear documentation workflow, see the `doc-flywheel
 - Form a hypothesis and verify it with actual data BEFORE attempting fixes. Do not shotgun-debug by trying random changes.
 - Do not switch approaches (e.g., `<Record>` vs `<Dial record>`, polling vs webhooks) without confirming with the user first. The current approach usually exists for a reason.
 - When debugging Twilio calls, use the Call Notifications API or MCP `validate_call` tool for deep validation — surface-level debugger checks miss most issues.
-- Before deploying Twilio Functions, verify the active CLI profile with `twilio profiles:list`. Multi-account setups are common and deploying to the wrong account is hard to detect.
+- **When ANY Twilio API call fails, check the full account error log** — `twilio api:core:notifications:list --limit 20`. Do NOT only check individual call statuses or the most recent 1-2 notifications. Patterns across multiple notifications reveal root causes (e.g., error 10004 appearing on every call means concurrency limit, not per-call auth issues).
+- **Always look up Twilio error codes** — Never guess what an error code means. Twilio error codes have specific meanings documented at `https://www.twilio.com/docs/errors/{code}`. Error 10004 = concurrent call limit exceeded (NOT "not authorized"). Some notifications return `messageText: null` (e.g., 10004), making the error code the only diagnostic signal.
+- **Verify account concurrent call limits before multi-call testing** — Trial and new accounts often have a 2 concurrent call limit. Multi-party features (conferences, warm transfers) require 3+ concurrent calls. Test the limit by creating calls one at a time before building complex flows. A `busy` status with duration 0 usually means the concurrency limit was hit.
+- Before deploying Twilio Functions, verify the active CLI profile with `twilio profiles:list`. Multi-account setups are common and deploying to the wrong account is hard to detect. **The CLI profile must match the `.env` account SID** — check both before any operation.
 - Twilio phone number direction matters:
   - **Outbound** (API-initiated): FROM = your Twilio number, TO = the destination
   - **Inbound** (webhook-triggered): FROM = the external caller/sender, TO = your Twilio number
@@ -219,7 +222,7 @@ Rules that have each caused real debugging time loss. These exist in domain-spec
 - **`Twilio.Response.setBody()` requires strings** — Passing objects causes `Buffer.from(object)` TypeError. Always `JSON.stringify()` + Content-Type header. (~29 latent instances across voice/ and conversation-relay/)
 - **`console.error()` → 82005 alerts** — Use `console.log()` for operational logging. Only `console.error()` in catch blocks. `console.warn()` → 82004.
 - **ConversationRelay uses `last`, not `isFinal`** — Protocol sends `{ last: true }`. Checking `isFinal` silently drops all follow-up utterances.
-- **Env vars can reset on deploy** — `twilio serverless:deploy` doesn't preserve runtime env vars. Always verify after deployment.
+- **Env vars can reset on deploy** — `twilio serverless:deploy` doesn't preserve runtime env vars. Always verify after deployment. **After every deploy, re-set any env vars that differ from `.env` defaults** (e.g., ngrok relay URLs, DOMAIN_NAME). The `.env` file contains placeholder values that overwrite runtime-configured values on each deploy.
 - **CLI profile and `.env` are independent** — CLI profile can point to main account while `.env` has subaccount SID. Check both before operations.
 - **TwiML: one document controls a call at a time** — Updating a participant's TwiML exits their current state (conference, queue). Exception: `<Start><Stream>`, `<Start><Recording>`, `<Start><Siprec>` fork background processes.
 - **Voice Intelligence: `source_sid`, not `media_url`** — Use Recording SID for transcript creation. `media_url` requires auth the Intelligence API can't provide.

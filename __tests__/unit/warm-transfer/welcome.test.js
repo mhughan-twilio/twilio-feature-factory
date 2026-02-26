@@ -1,20 +1,41 @@
 // ABOUTME: Unit tests for the welcome warm transfer function.
-// ABOUTME: Tests conference TwiML generation and AI participant addition for inbound calls.
+// ABOUTME: Tests conference TwiML generation and AI participant addition via Participants API.
 
-const mockCallsCreate = jest.fn();
+const mockNumbersList = jest.fn();
+const mockNumberUpdate = jest.fn();
+const mockParticipantsCreate = jest.fn();
 
 jest.mock('twilio', () => {
-  const TwilioMock = jest.fn(() => ({
-    calls: {
-      create: mockCallsCreate,
+  const mockConferences = jest.fn(() => ({
+    participants: {
+      create: mockParticipantsCreate,
     },
   }));
 
+  const TwilioMock = jest.fn(() => ({
+    incomingPhoneNumbers: {
+      list: mockNumbersList,
+    },
+    conferences: mockConferences,
+  }));
+
+  // Attach update to the return of incomingPhoneNumbers()
+  TwilioMock._mockNumberUpdate = mockNumberUpdate;
+  const origTwilio = TwilioMock;
+  const wrappedTwilio = jest.fn((...args) => {
+    const instance = new origTwilio(...args);
+    instance.incomingPhoneNumbers = jest.fn((_sid) => ({
+      update: mockNumberUpdate,
+    }));
+    instance.incomingPhoneNumbers.list = mockNumbersList;
+    return instance;
+  });
+
   // Keep twiml namespace from real Twilio for TwiML generation
   const realTwilio = jest.requireActual('twilio');
-  TwilioMock.twiml = realTwilio.twiml;
+  wrappedTwilio.twiml = realTwilio.twiml;
 
-  TwilioMock.Response = class {
+  wrappedTwilio.Response = class {
     constructor() {
       this.statusCode = 200;
       this.body = '';
@@ -25,7 +46,7 @@ jest.mock('twilio', () => {
     appendHeader(key, value) { this.headers[key] = value; }
   };
 
-  return TwilioMock;
+  return wrappedTwilio;
 });
 
 const Twilio = require('twilio');
@@ -40,15 +61,17 @@ describe('welcome handler', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockCallsCreate.mockResolvedValue({
-      sid: 'CA1234567890abcdef1234567890abcdef',
+    mockNumbersList.mockResolvedValue([{ sid: 'PN_receptionist_123' }]);
+    mockNumberUpdate.mockResolvedValue({});
+    mockParticipantsCreate.mockResolvedValue({
+      callSid: 'CA_ai_123',
       status: 'queued',
     });
 
     context = {
       TWILIO_PHONE_NUMBER: '+15551234567',
+      WT_RECEPTIONIST_NUMBER: '+15559999999',
       DOMAIN_NAME: 'test-dev.twil.io',
-      WT_RECEPTIONIST_RELAY_URL: 'wss://test-server.ngrok.dev/receptionist',
       getTwilioClient: () => new Twilio(),
     };
     callback = jest.fn();
@@ -73,7 +96,7 @@ describe('welcome handler', () => {
     expect(error).toBeNull();
 
     const twiml = response.toString();
-    expect(twiml).toContain('<Dial>');
+    expect(twiml).toContain('<Dial');
     expect(twiml).toContain('<Conference');
   });
 
@@ -103,7 +126,7 @@ describe('welcome handler', () => {
     expect(twiml).toContain('beep="false"');
   });
 
-  it('should add AI participant via calls.create', async () => {
+  it('should add AI participant via Participants API', async () => {
     const event = global.createTestEvent({
       CallSid: 'CA_caller_123',
       From: '+15559876543',
@@ -111,14 +134,20 @@ describe('welcome handler', () => {
 
     await handler(context, event, callback);
 
-    expect(mockCallsCreate).toHaveBeenCalledTimes(1);
-    const params = mockCallsCreate.mock.calls[0][0];
+    // Should update the number's voice URL with ConferenceName
+    expect(mockNumberUpdate).toHaveBeenCalledTimes(1);
+    const updateArgs = mockNumberUpdate.mock.calls[0][0];
+    expect(updateArgs.voiceUrl).toContain('receptionist-relay');
+    expect(updateArgs.voiceUrl).toContain('ConferenceName=');
+
+    // Should add participant via Participants API
+    expect(mockParticipantsCreate).toHaveBeenCalledTimes(1);
+    const params = mockParticipantsCreate.mock.calls[0][0];
     expect(params.from).toBe('+15551234567');
-    expect(params.url).toContain('receptionist-relay');
-    expect(params.url).toContain('ConferenceName=');
+    expect(params.to).toBe('+15559999999');
   });
 
-  it('should include timeLimit on conference', async () => {
+  it('should include timeLimit on Dial element', async () => {
     const event = global.createTestEvent({
       CallSid: 'CA_caller_123',
       From: '+15559876543',
@@ -127,12 +156,11 @@ describe('welcome handler', () => {
     await handler(context, event, callback);
 
     const twiml = callback.mock.calls[0][1].toString();
-    // Conference should have a time limit to prevent runaway calls
     expect(twiml).toContain('timeLimit=');
   });
 
-  it('should handle calls.create failure gracefully', async () => {
-    mockCallsCreate.mockRejectedValue(new Error('API error'));
+  it('should handle participant creation failure gracefully', async () => {
+    mockParticipantsCreate.mockRejectedValue(new Error('API error'));
     const event = global.createTestEvent({
       CallSid: 'CA_caller_123',
       From: '+15559876543',
@@ -140,7 +168,7 @@ describe('welcome handler', () => {
 
     await handler(context, event, callback);
 
-    // Should still return TwiML (caller is already in conference)
+    // Should still return TwiML (caller gets conference even if AI fails)
     expect(callback).toHaveBeenCalledTimes(1);
     const [error] = callback.mock.calls[0];
     expect(error).toBeNull();

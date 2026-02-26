@@ -387,6 +387,25 @@ Both execute simultaneously and are bridged together. A single `make_call` produ
 
 For conference-based patterns (contact center, sales dialer), call each participant separately with their own `Url` TwiML rather than relying on the bridge from a single call.
 
+**E2E testing implication**: Using `calls.create(to: TwilioNumber, url: testTwiml)` to simulate a caller does NOT put the test TwiML into the conference. The parent leg runs `testTwiml`, the child leg joins the conference via its voice URL, and the bridge between them breaks when the child enters the conference. The parent leg (test AI) is left isolated. For E2E testing of conference flows, add all participants via the Participants API instead.
+
+### `timeLimit` Is a `<Dial>` Attribute, Not `<Conference>`
+
+`timeLimit` controls maximum call duration and belongs on the `<Dial>` verb, not `<Conference>`. Putting it on `<Conference>` generates error 12200 (XML Validation warning) and is silently ignored.
+
+```javascript
+// WRONG — generates 12200
+dial.conference({ timeLimit: 1800 }, conferenceName);
+
+// RIGHT — timeLimit on Dial
+const dial = twiml.dial({ timeLimit: 1800 });
+dial.conference({ beep: false }, conferenceName);
+```
+
+### Participants API `from` Number Must Be Free
+
+The `from` number in `conferences(name).participants.create({ from, to })` is used to originate the outbound call. If that number is already handling an active call, the new call gets `busy` (error 10004 if concurrency limit hit). Use a different Twilio number as `from` than the one handling the inbound call.
+
 ### Pre-E2E: Verify ALL Phone Numbers Have Voice URLs
 
 Before running E2E tests, verify every phone number in the call flow has a voice URL — not just the inbound/tracking numbers, but Dial destinations, agent numbers, and business lines. A number with `voiceUrl: null` causes `<Dial>` to fail immediately with no useful error.

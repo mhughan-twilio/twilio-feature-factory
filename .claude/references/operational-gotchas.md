@@ -18,6 +18,12 @@ Cross-cutting gotchas discovered through real debugging sessions. Domain-specifi
 
 - **Inbound leg CallSid differs from outbound API call SID** — When initiating outbound to a tracking number, the function sees a different CallSid (inbound child). Sync docs keyed by inbound SID, recordings on outbound SID.
 
+- **Deploy overwrites runtime env vars with `.env` placeholders** — Every `twilio serverless:deploy` resets env vars to `.env` file values. If `.env` has placeholders (e.g., `wss://your-domain.ngrok.dev/...`) and you set real values via `serverless:env:set`, those real values are lost on next deploy. Always re-set dynamic env vars after every deploy.
+
+- **Read ngrok domain from `.env`, don't use shell env vars** — Claude Code's bash commands don't inherit direnv-loaded env vars. When starting ngrok, read `NGROK_DOMAIN_A` from the `.env` file directly (e.g., `--domain=mhughan.ngrok.dev`) instead of using `$NGROK_DOMAIN_A`. Same applies to any `.env` variable not exported in the shell.
+
+- **Verify CLI profile matches `.env` account before deploying** — `twilio profiles:list` shows the active profile's Account SID. Compare against `TWILIO_ACCOUNT_SID` in `.env`. Deploying with a mismatched profile deploys to the wrong account.
+
 ## ConversationRelay & Voice Intelligence
 
 - **`record: true` on make_call is ignored with ConversationRelay** — REST API recording param silently produces no recording when TwiML handler uses `<Connect><ConversationRelay>`. Always use `<Start><Recording>` in TwiML before ConversationRelay.

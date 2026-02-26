@@ -1,5 +1,5 @@
 // ABOUTME: Handles inbound calls by placing the caller in a conference and adding an AI receptionist.
-// ABOUTME: Generates a unique conference name and adds a ConversationRelay participant via calls.create.
+// ABOUTME: Uses Participants API to add a ConversationRelay participant with audio bridged at transport level.
 
 /**
  * Generate a unique conference name with wt- prefix, timestamp, and random suffix.
@@ -15,28 +15,50 @@ exports.handler = async (context, event, callback) => {
   const twiml = new Twilio.twiml.VoiceResponse();
 
   const conferenceName = generateConferenceName();
+  const domainName = context.DOMAIN_NAME;
+  const receptionistNumber = context.WT_RECEPTIONIST_NUMBER;
+
+  // Add AI receptionist via Participants API. The Participants API bridges audio
+  // into the conference at the transport level regardless of what TwiML the called
+  // number returns. We update the number's voice URL to include ConferenceName so
+  // receptionist-relay can pass it to the WS handler.
+  try {
+    // Look up the phone number SID for WT_RECEPTIONIST_NUMBER
+    const numbers = await client.incomingPhoneNumbers.list({
+      phoneNumber: receptionistNumber,
+      limit: 1,
+    });
+
+    if (numbers.length > 0) {
+      // Set voice URL to receptionist-relay with ConferenceName query param
+      const relayUrl = `https://${domainName}/warm-transfer/receptionist-relay?ConferenceName=${encodeURIComponent(conferenceName)}`;
+      await client.incomingPhoneNumbers(numbers[0].sid).update({
+        voiceUrl: relayUrl,
+      });
+    }
+
+    // Add as conference participant — audio bridges regardless of TwiML
+    await client.conferences(conferenceName)
+      .participants
+      .create({
+        from: context.TWILIO_PHONE_NUMBER,
+        to: receptionistNumber,
+        startConferenceOnEnter: true,
+        endConferenceOnExit: false,
+        beep: false,
+        timeout: 15,
+      });
+  } catch (err) {
+    console.log('Failed to add AI receptionist participant:', err.message);
+  }
 
   // Put the caller into the conference
-  const dial = twiml.dial();
+  const dial = twiml.dial({ timeLimit: 1800 });
   dial.conference({
     startConferenceOnEnter: true,
     endConferenceOnExit: true,
     beep: false,
-    timeLimit: 1800,
   }, conferenceName);
-
-  // Add AI receptionist as a separate call leg pointing to receptionist-relay
-  const receptionistUrl = `https://${context.DOMAIN_NAME}/warm-transfer/receptionist-relay?ConferenceName=${encodeURIComponent(conferenceName)}`;
-
-  try {
-    await client.calls.create({
-      from: context.TWILIO_PHONE_NUMBER,
-      to: context.TWILIO_PHONE_NUMBER,
-      url: receptionistUrl,
-    });
-  } catch (err) {
-    console.log('Failed to add AI receptionist participant:', err.message);
-  }
 
   return callback(null, twiml);
 };

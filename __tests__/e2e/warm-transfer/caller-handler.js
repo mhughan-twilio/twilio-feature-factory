@@ -36,21 +36,17 @@ Don't volunteer all information at once — let the conversation flow naturally.
 /**
  * Send a prompt to Claude and return the response text.
  */
-async function sendToLLM(anthropic, systemPrompt, messages) {
+async function sendToLLM(openai, systemPrompt, messages) {
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
       max_tokens: 150,
-      system: systemPrompt,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+      ],
     });
-
-    for (const block of response.content) {
-      if (block.type === 'text') {
-        return block.text;
-      }
-    }
-    return 'Yes, that sounds right.';
+    return response.choices[0].message.content;
   } catch (error) {
     console.log(`[caller] LLM error: ${error.message}`);
     return 'Sorry, could you repeat that?';
@@ -89,7 +85,7 @@ function handleCaller(ws, params, ctx) {
           console.log(`[${ts}] [caller] HEARD: "${message.voicePrompt}"`);
           session.messages.push({ role: 'user', content: message.voicePrompt });
 
-          const response = await sendToLLM(ctx.anthropic, systemPrompt, session.messages);
+          const response = await sendToLLM(ctx.openai, systemPrompt, session.messages);
           session.messages.push({ role: 'assistant', content: response });
 
           console.log(`[${ts}] [caller] RESPONSE: "${response}"`);

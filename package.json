@@ -32,6 +32,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "openai": "^6.25.0",
     "twilio": "^5.0.0"
   },
   "devDependencies": {

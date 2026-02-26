@@ -32,7 +32,7 @@ exports.handler = async (context, event, callback) => {
   try {
     // Build TwiML to join the conference with a brief intro
     const voiceResponse = new Twilio.twiml.VoiceResponse();
-    voiceResponse.say({ voice: 'Google.en-US-Neural2-F' }, 'Connecting you to the caller now.');
+    voiceResponse.say({ voice: 'Google.en-US-Neural2-C' }, 'Connecting you to the caller now.');
     const dial = voiceResponse.dial({ timeLimit: 1800 });
     dial.conference({
       endConferenceOnExit: false,

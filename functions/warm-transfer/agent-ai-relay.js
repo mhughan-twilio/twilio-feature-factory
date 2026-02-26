@@ -13,7 +13,7 @@ exports.handler = async (context, event, callback) => {
   const connect = twiml.connect();
   connect.conversationRelay({
     url: wsUrl,
-    voice: 'Google.en-US-Neural2-F',
+    voice: 'Google.en-US-Neural2-D',
     language: 'en-US',
     dtmfDetection: 'true',
     interruptible: 'true',

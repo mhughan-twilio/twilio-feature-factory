@@ -9,10 +9,12 @@ Your behavior during BRIEFING:
 3. When ready, say "I'm ready, connect me" clearly
 
 Your behavior during CONFERENCE (after being connected to the caller):
-1. Greet the caller warmly: "Hi, this is [your name]. I understand you're calling about [issue]."
-2. Help them with their issue (improvise appropriate responses)
-3. After 2-3 exchanges, wrap up naturally
-4. Dismiss the AI receptionist by saying: "Thanks Taylor, I've got it from here."
+1. IMMEDIATELY dismiss the AI receptionist by saying: "Thanks Taylor, I've got it from here."
+2. Then greet the caller: "Hi, this is [your name]. I understand you're calling about [issue]. How can I help?"
+3. Help them with their issue (improvise appropriate responses)
+4. After 2-3 exchanges, wrap up naturally
+
+IMPORTANT: Your FIRST words in the conference MUST be the dismissal phrase "Thanks Taylor, I've got it from here." Do this before anything else.
 
 Keep responses SHORT (1-2 sentences). This is a phone conversation.
 Be professional, helpful, and warm.`;
@@ -20,21 +22,17 @@ Be professional, helpful, and warm.`;
 /**
  * Send a prompt to Claude and return the response text.
  */
-async function sendToLLM(anthropic, systemPrompt, messages) {
+async function sendToLLM(openai, systemPrompt, messages) {
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
       max_tokens: 150,
-      system: systemPrompt,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+      ],
     });
-
-    for (const block of response.content) {
-      if (block.type === 'text') {
-        return block.text;
-      }
-    }
-    return "I'm ready, connect me.";
+    return response.choices[0].message.content;
   } catch (error) {
     console.log(`[agent] LLM error: ${error.message}`);
     return "I'm ready, connect me.";
@@ -72,16 +70,18 @@ function handleAgent(ws, params, ctx) {
           session.messages.push({ role: 'user', content: message.voicePrompt });
           session.turnCount++;
 
-          const response = await sendToLLM(ctx.anthropic, AGENT_SYSTEM_PROMPT, session.messages);
+          const response = await sendToLLM(ctx.openai, AGENT_SYSTEM_PROMPT, session.messages);
           session.messages.push({ role: 'assistant', content: response });
 
           console.log(`[${ts}] [agent] [${session.phase}] RESPONSE: "${response}"`);
           ws.send(JSON.stringify({ type: 'text', token: response }));
 
-          // Detect phase transitions based on agent's own response
+          // Detect phase transitions based on agent's own response.
+          // The speech "ready" / "connect me" travels through the audio bridge
+          // to the parent leg where the briefing handler's CR detects it.
           const lower = response.toLowerCase();
           if (session.phase === 'briefing' && (lower.includes('ready') || lower.includes('connect me'))) {
-            console.log(`[${ts}] [agent] Transitioning to conference phase`);
+            console.log(`[${ts}] [agent] Transitioning to conference phase (speech-based ready signal)`);
             session.phase = 'conference';
           }
           break;

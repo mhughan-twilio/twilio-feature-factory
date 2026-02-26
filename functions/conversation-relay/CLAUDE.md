@@ -121,16 +121,51 @@ connect.conversationRelay({
 ```json
 {
   "type": "text",
-  "token": "Hello! I'd be happy to help you with your account."
+  "token": "Hello! I'd be happy to help you with your account.",
+  "last": false,
+  "interruptible": false,
+  "preemptible": false
+}
+```
+Only `type` and `token` are required. Optional fields: `last` (final token in response), `interruptible`, `preemptible`, `lang`.
+
+#### Play Media
+```json
+{
+  "type": "play",
+  "source": "https://example.com/audio.mp3",
+  "loop": 1,
+  "preemptible": false,
+  "interruptible": true
+}
+```
+
+#### Send Digits (DTMF)
+```json
+{
+  "type": "sendDigits",
+  "digits": "9www4085551212"
+}
+```
+Transmits DTMF tones to the caller. Supports 0-9, `w` (500ms pause), `#`, `*`.
+
+#### Switch Language
+```json
+{
+  "type": "language",
+  "ttsLanguage": "sv-SE",
+  "transcriptionLanguage": "en-US"
 }
 ```
 
 #### End Session
 ```json
 {
-  "type": "end"
+  "type": "end",
+  "handoffData": "{\"reasonCode\":\"live-agent-handoff\"}"
 }
 ```
+`handoffData` is optional — passed to subsequent TwiML execution after CR ends.
 
 ## WebSocket Server Implementation Pattern
 

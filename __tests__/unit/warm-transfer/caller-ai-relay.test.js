@@ -49,7 +49,7 @@ describe('caller-ai-relay handler', () => {
 
     const [, response] = callback.mock.calls[0];
     const twiml = response.toString();
-    expect(twiml).toContain('voice="Google.en-US-Neural2-F"');
+    expect(twiml).toContain('voice="Google.en-US-Neural2-J"');
   });
 
   it('should use configured WT_CALLER_AI_RELAY_URL', async () => {

@@ -52,6 +52,13 @@ exports.handler = async (context, event, callback) => {
     console.log('Failed to add AI receptionist participant:', err.message);
   }
 
+  // Start background recording for debugging
+  const start = twiml.start();
+  start.recording({
+    recordingStatusCallback: `https://${domainName}/callbacks/call-status`,
+    recordingStatusCallbackEvent: 'completed',
+  });
+
   // Put the caller into the conference
   const dial = twiml.dial({ timeLimit: 1800 });
   dial.conference({

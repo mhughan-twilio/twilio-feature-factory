@@ -111,32 +111,17 @@ describe('initiate-agent-call handler', () => {
       expect(JSON.parse(response.body).error).toContain('AgentName');
     });
 
-    it('should return 400 when CallerIssue is missing', async () => {
+    it('should succeed when CallerIssue and CallerCallSid are missing (optional params)', async () => {
       const event = global.createTestEvent({
         ConferenceName: 'wt-1234-abc',
         AgentName: 'Alice',
-        CallerCallSid: 'CA_caller_123',
       });
 
       await handler(context, event, callback);
 
       const [, response] = callback.mock.calls[0];
-      expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body).error).toContain('CallerIssue');
-    });
-
-    it('should return 400 when CallerCallSid is missing', async () => {
-      const event = global.createTestEvent({
-        ConferenceName: 'wt-1234-abc',
-        AgentName: 'Alice',
-        CallerIssue: 'billing question',
-      });
-
-      await handler(context, event, callback);
-
-      const [, response] = callback.mock.calls[0];
-      expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body).error).toContain('CallerCallSid');
+      expect(response.statusCode).toBe(200);
+      expect(JSON.parse(response.body).success).toBe(true);
     });
   });
 

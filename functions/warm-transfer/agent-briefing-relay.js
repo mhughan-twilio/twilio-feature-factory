@@ -1,4 +1,4 @@
-// ABOUTME: Returns ConversationRelay TwiML for the agent briefing call in a warm transfer.
+// ABOUTME: Returns ConversationRelay TwiML for the AI that briefs the agent before warm transfer.
 // ABOUTME: Passes ConferenceName as a query param to the WebSocket URL for session tracking.
 
 exports.handler = async (context, event, callback) => {
@@ -10,10 +10,20 @@ exports.handler = async (context, event, callback) => {
     ? `${baseUrl}?ConferenceName=${conferenceName}`
     : baseUrl;
 
+  // Start background recording for debugging
+  const domainName = context.DOMAIN_NAME;
+  if (domainName) {
+    const start = twiml.start();
+    start.recording({
+      recordingStatusCallback: `https://${domainName}/callbacks/call-status`,
+      recordingStatusCallbackEvent: 'completed',
+    });
+  }
+
   const connect = twiml.connect();
   connect.conversationRelay({
     url: wsUrl,
-    voice: 'Google.en-US-Neural2-F',
+    voice: 'Google.en-US-Neural2-C',
     language: 'en-US',
     dtmfDetection: 'true',
     interruptible: 'true',

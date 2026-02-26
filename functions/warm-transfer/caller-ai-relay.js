@@ -7,7 +7,7 @@ exports.handler = async (context, event, callback) => {
   const connect = twiml.connect();
   connect.conversationRelay({
     url: context.WT_CALLER_AI_RELAY_URL,
-    voice: 'Google.en-US-Neural2-F',
+    voice: 'Google.en-US-Neural2-J',
     language: 'en-US',
     dtmfDetection: 'true',
     interruptible: 'true',

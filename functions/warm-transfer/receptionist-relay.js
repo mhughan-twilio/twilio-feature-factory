@@ -10,6 +10,16 @@ exports.handler = async (context, event, callback) => {
     ? `${baseUrl}?ConferenceName=${conferenceName}`
     : baseUrl;
 
+  // Start background recording for debugging
+  const domainName = context.DOMAIN_NAME;
+  if (domainName) {
+    const start = twiml.start();
+    start.recording({
+      recordingStatusCallback: `https://${domainName}/callbacks/call-status`,
+      recordingStatusCallbackEvent: 'completed',
+    });
+  }
+
   const connect = twiml.connect();
   connect.conversationRelay({
     url: wsUrl,

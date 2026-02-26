@@ -60,7 +60,7 @@ describe('agent-briefing-relay handler', () => {
 
     const [, response] = callback.mock.calls[0];
     const twiml = response.toString();
-    expect(twiml).toContain('voice="Google.en-US-Neural2-F"');
+    expect(twiml).toContain('voice="Google.en-US-Neural2-C"');
   });
 
   it('should include ConferenceName as query param in WebSocket URL', async () => {

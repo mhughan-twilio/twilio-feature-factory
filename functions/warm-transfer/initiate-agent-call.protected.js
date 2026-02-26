@@ -5,7 +5,7 @@ exports.handler = async (context, event, callback) => {
   const client = context.getTwilioClient();
 
   // Validate required parameters
-  const required = ['ConferenceName', 'AgentName', 'CallerIssue', 'CallerCallSid'];
+  const required = ['ConferenceName', 'AgentName'];
   for (const param of required) {
     if (!event[param]) {
       const response = new Twilio.Response();
@@ -61,7 +61,9 @@ exports.handler = async (context, event, callback) => {
     }
   }
 
-  // Create outbound call to the agent
+  // Call the agent. Parent leg runs briefing CR (url param), child leg runs
+  // agent's voice URL (simulated agent in test, real person in production).
+  // They're bridged — the briefing AI and agent talk directly.
   try {
     const briefingUrl = `https://${context.DOMAIN_NAME}/warm-transfer/agent-briefing-relay?ConferenceName=${encodeURIComponent(ConferenceName)}`;
 

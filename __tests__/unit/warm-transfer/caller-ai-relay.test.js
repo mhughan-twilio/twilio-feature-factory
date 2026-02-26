@@ -27,7 +27,8 @@ describe('caller-ai-relay handler', () => {
     expect(callback).toHaveBeenCalledTimes(1);
     const [error, response] = callback.mock.calls[0];
     expect(error).toBeNull();
-    expect(response).toBeDefined();
+    const twiml = response.toString();
+    expect(twiml).toContain('<Response>');
   });
 
   it('should include Connect and ConversationRelay elements', async () => {

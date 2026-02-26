@@ -27,7 +27,19 @@ describe('receptionist-relay handler', () => {
     expect(callback).toHaveBeenCalledTimes(1);
     const [error, response] = callback.mock.calls[0];
     expect(error).toBeNull();
-    expect(response).toBeDefined();
+    const twiml = response.toString();
+    expect(twiml).toContain('<Response>');
+  });
+
+  it('should use base URL without query param when ConferenceName is missing', async () => {
+    const event = global.createTestEvent({});
+
+    await handler(context, event, callback);
+
+    const [, response] = callback.mock.calls[0];
+    const twiml = response.toString();
+    expect(twiml).toContain('wss://test-server.ngrok.dev/receptionist');
+    expect(twiml).not.toContain('ConferenceName=');
   });
 
   it('should include Connect element', async () => {

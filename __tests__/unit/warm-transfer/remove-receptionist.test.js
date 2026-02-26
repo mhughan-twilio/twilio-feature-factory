@@ -197,6 +197,22 @@ describe('remove-receptionist handler', () => {
       expect(updateParams.data.agentName).toBe('Alice');
       expect(updateParams.data.dismissedAt).toBeDefined();
     });
+
+    it('should still return success when Sync fetch fails (non-fatal)', async () => {
+      mockSyncFetch.mockRejectedValue(new Error('Sync service unavailable'));
+
+      const event = global.createTestEvent({
+        ConferenceName: 'wt-1234-abc',
+        ReceptionistCallSid: 'CA_receptionist_123',
+      });
+
+      await handler(context, event, callback);
+
+      const [error, response] = callback.mock.calls[0];
+      expect(error).toBeNull();
+      expect(response.statusCode).toBe(200);
+      expect(JSON.parse(response.body).success).toBe(true);
+    });
   });
 
   describe('error handling', () => {

@@ -181,6 +181,22 @@ describe('bridge-agent handler', () => {
       expect(updateParams.data.callerIssue).toBe('billing question');
       expect(updateParams.data.bridgedAt).toBeDefined();
     });
+
+    it('should still return success when Sync fetch fails (non-fatal)', async () => {
+      mockSyncFetch.mockRejectedValue(new Error('Sync service unavailable'));
+
+      const event = global.createTestEvent({
+        AgentCallSid: 'CA_agent_123',
+        ConferenceName: 'wt-1234-abc',
+      });
+
+      await handler(context, event, callback);
+
+      const [error, response] = callback.mock.calls[0];
+      expect(error).toBeNull();
+      expect(response.statusCode).toBe(200);
+      expect(JSON.parse(response.body).success).toBe(true);
+    });
   });
 
   describe('error handling', () => {

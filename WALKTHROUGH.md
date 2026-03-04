@@ -612,4 +612,4 @@ Now that you understand the workflow:
 - [agents/README.md](agents/README.md) - Agent architecture
 - [functions/conversation-relay/CLAUDE.md](functions/conversation-relay/CLAUDE.md) - ConversationRelay patterns
 - [functions/voice/CLAUDE.md](functions/voice/CLAUDE.md) - Voice/TwiML patterns
-- [Twilio ConversationRelay Docs](https://www.twilio.com/docs/voice/conversation-relay)
+- [Twilio ConversationRelay Docs](https://www.twilio.com/docs/voice/conversationrelay)

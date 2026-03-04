@@ -18,7 +18,7 @@ Cross-cutting gotchas discovered through real debugging sessions. Domain-specifi
 
 - **Inbound leg CallSid differs from outbound API call SID** — When initiating outbound to a tracking number, the function sees a different CallSid (inbound child). Sync docs keyed by inbound SID, recordings on outbound SID.
 
-- **Deploy overwrites runtime env vars with `.env` placeholders** — Every `twilio serverless:deploy` resets env vars to `.env` file values. If `.env` has placeholders (e.g., `wss://your-domain.ngrok.dev/...`) and you set real values via `serverless:env:set`, those real values are lost on next deploy. Always re-set dynamic env vars after every deploy.
+- **Deploy overwrites runtime env vars with `.env` values** — Every `twilio serverless:deploy` resets env vars to `.env` file values. Keep `.env` up to date with real values (including `DOMAIN_NAME` after first deploy). If you use `serverless:env:set` at runtime, update `.env` too or the change is lost on next deploy.
 
 - **Read ngrok domain from `.env`, don't use shell env vars** — Claude Code's bash commands don't inherit direnv-loaded env vars. When starting ngrok, read `NGROK_DOMAIN_A` from the `.env` file directly (e.g., `--domain=mhughan.ngrok.dev`) instead of using `$NGROK_DOMAIN_A`. Same applies to any `.env` variable not exported in the shell.
 

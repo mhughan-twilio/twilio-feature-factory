@@ -273,6 +273,65 @@ AI agents require additional monitoring:
 **Conference with AI Agents:**
 Currently less common but increasing. Consider starting with Conference if AI agent might escalate to human - avoids upgrading call later.
 
+### Warm Transfer
+
+**Goal:** Connect a caller to a human agent with context — the agent is briefed before joining, then the call becomes a three-way conference where the original AI/receptionist can be dismissed.
+
+**Architecture: Conference-First with ConversationRelay Participant**
+
+```
+Phase 1 — Intake:
+  Caller ──► Conference
+  AI Receptionist ──► ConversationRelay participant (audio bridged by Participants API)
+  AI determines which agent the caller needs and their issue.
+
+Phase 2 — Briefing:
+  Caller + AI still in conference (AI makes small talk / hold chat)
+  Agent ◄── calls.create(url: briefing-relay) ──► Briefing AI (separate call, NOT in conference)
+  Briefing AI shares caller context, agent signals ready (DTMF 1 or speech)
+
+Phase 3 — Bridge:
+  Agent's child call leg updated with <Dial><Conference> TwiML
+  Conference: Caller + AI Receptionist + Agent (three-way)
+
+Phase 4 — Dismissal:
+  Agent says "Thanks, I've got it from here"
+  AI detects dismissal → removes itself from conference
+  Conference: Caller + Agent (two-way)
+```
+
+**Key Implementation Details:**
+
+**Participants API bridges audio regardless of TwiML.** When adding a ConversationRelay participant via the Participants API, audio is bridged into the conference at the transport level. The participant's voice URL can return `<Connect><ConversationRelay>` — the CR session hears/speaks through the conference mixer. This is the foundational insight that makes AI-in-conference work.
+
+**Dynamic voice URL for ConferenceName passing.** The Participants API doesn't support a `url` parameter. To pass a dynamic ConferenceName to the participant's voice URL, update the phone number's voice URL to include the ConferenceName as a query param before calling `participants.create()`.
+
+```javascript
+// Update voice URL with dynamic ConferenceName
+const numbers = await client.incomingPhoneNumbers.list({ phoneNumber: receptionistNumber, limit: 1 });
+await client.incomingPhoneNumbers(numbers[0].sid).update({
+  voiceUrl: `https://${domain}/receptionist-relay?ConferenceName=${encodeURIComponent(conferenceName)}`,
+});
+// Add as conference participant
+await client.conferences(conferenceName).participants.create({
+  from: twilioPhoneNumber, to: receptionistNumber,
+  startConferenceOnEnter: true, endConferenceOnExit: false, beep: false,
+});
+```
+
+**Agent call uses `calls.create()`, not Participants API.** The agent call is a private briefing — NOT in the conference yet. Use `calls.create({ to: agentNumber, url: briefingRelayUrl })`. This creates two legs (parent runs briefing CR, child runs agent's voice URL). When ready, update the **child** leg to join the conference — not the parent. Look up the child via `client.calls.list({ parentCallSid })`.
+
+**`calls.create()` to Twilio numbers creates dual TwiML legs.** The parent leg runs the `url` parameter's TwiML. The child leg runs the number's configured voice URL. Both execute independently and are bridged. When bridge-agent updates one leg to `<Dial><Conference>`, that leg joins the conference and the bridge with the other leg breaks.
+
+**endConferenceOnExit configuration is critical:**
+- Caller: `endConferenceOnExit: true` (conference ends when caller hangs up)
+- AI Receptionist: `endConferenceOnExit: false` (removing AI doesn't end conference)
+- Agent: `endConferenceOnExit: false` (agent leaving doesn't kill caller's call)
+
+**Account concurrent call limits.** Warm transfer needs 4+ concurrent calls (caller conference leg, receptionist CR leg, agent briefing parent leg, agent briefing child leg). Trial/new accounts may have a 2-call limit. Error 10004 = concurrency limit exceeded. Verify limits before building multi-call flows.
+
+**ConversationRelay `sendDigits` message.** The WS server can send `{ type: "sendDigits", digits: "1" }` to play DTMF tones on the call. Useful for simulating button presses in E2E tests. Other undocumented outgoing CR message types: `play` (play audio URL), `language` (switch TTS/transcription language).
+
 ### Sales Dialer
 
 **Essentially:** Outbound Contact Center variant
